@@ -48,6 +48,7 @@ def get_amadeus_token():
 def search_flights(origin, destination, depart_date, return_date):
     token = get_amadeus_token()
     if not token:
+        print("Failed to retrieve token")
         return []
     url = "https://test.api.amadeus.com/v2/shopping/flight-offers"
     params = {
@@ -60,6 +61,9 @@ def search_flights(origin, destination, depart_date, return_date):
     }
     headers = {"Authorization": f"Bearer {token}"}
     r = requests.get(url, params=params, headers=headers)
+    print("Request URL:", r.url)
+    print("Status Code:", r.status_code)
+    print("Response:", r.text)
     if r.status_code == 200:
         return r.json().get("data", [])
     return []
