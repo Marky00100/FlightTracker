@@ -1,20 +1,44 @@
 #!/usr/bin/env python3
-from flask import Flask, render_template, request, redirect, url_for, session
-import requests, datetime, os, pandas as pd
+import os
+import requests, datetime, pandas as pd
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 from apscheduler.schedulers.background import BackgroundScheduler
 import plotly.express as px
 
+# Optionally load environment variables from a .env file (install python-dotenv if needed)
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 app = Flask(__name__)
-app.secret_key = 'your_secure_secret_key'  # Change this
+app.secret_key = os.environ.get("APP_SECRET", "your_secure_secret_key")  # Change this!
+
+# Global log list for active readout
+log_messages = []
+
+def add_log(message):
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    entry = f"[{timestamp}] {message}"
+    log_messages.append(entry)
+    # Limit logs to last 100 entries
+    if len(log_messages) > 100:
+        del log_messages[0:len(log_messages)-100]
+    print(entry)
 
 # --- Load API Keys from keys.txt ---
 def load_api_keys():
     keys = {}
-    with open('keys.txt', 'r') as f:
-        for line in f:
-            if '=' in line:
-                key, val = line.strip().split('=', 1)
-                keys[key.strip()] = val.strip()
+    try:
+        with open('keys.txt', 'r') as f:
+            for line in f:
+                if '=' in line:
+                    key, val = line.strip().split('=', 1)
+                    keys[key.strip()] = val.strip()
+        add_log("Loaded API keys from keys.txt.")
+    except Exception as e:
+        add_log(f"Error loading keys.txt: {e}")
     return keys
 
 api_keys = load_api_keys()
@@ -30,15 +54,23 @@ def get_amadeus_token():
         "client_secret": AMADEUS_API_SECRET
     }
     headers = {"Content-Type": "application/x-www-form-urlencoded"}
-    r = requests.post(url, data=payload, headers=headers)
-    if r.status_code == 200:
-        return r.json().get("access_token")
+    try:
+        r = requests.post(url, data=payload, headers=headers)
+        add_log(f"Token request status: {r.status_code}")
+        if r.status_code == 200:
+            token = r.json().get("access_token")
+            add_log("Retrieved Amadeus token.")
+            return token
+        else:
+            add_log(f"Failed to get token: {r.text}")
+    except Exception as e:
+        add_log(f"Exception in get_amadeus_token: {e}")
     return None
 
 def search_flights(origin, destination, depart_date, return_date):
     token = get_amadeus_token()
     if not token:
-        print("Failed to retrieve token")
+        add_log("Token retrieval failed in search_flights.")
         return []
     url = "https://test.api.amadeus.com/v2/shopping/flight-offers"
     params = {
@@ -50,12 +82,17 @@ def search_flights(origin, destination, depart_date, return_date):
         "max": 50
     }
     headers = {"Authorization": f"Bearer {token}"}
-    r = requests.get(url, params=params, headers=headers)
-    print("Request URL:", r.url)
-    print("Status Code:", r.status_code)
-    print("Response:", r.text)
-    if r.status_code == 200:
-        return r.json().get("data", [])
+    try:
+        r = requests.get(url, params=params, headers=headers)
+        add_log(f"Flight search: {r.url} Status: {r.status_code}")
+        if r.status_code == 200:
+            data = r.json().get("data", [])
+            add_log(f"Found {len(data)} flight offers.")
+            return data
+        else:
+            add_log(f"Flight search error: {r.text}")
+    except Exception as e:
+        add_log(f"Exception in search_flights: {e}")
     return []
 
 # --- Global Storage for Latest Deals ---
@@ -65,13 +102,14 @@ latest_deals = []
 def update_deals():
     criteria = app.config.get("SEARCH_CRITERIA")
     if not criteria:
+        add_log("No search criteria set; skipping update.")
         return
     origin = criteria.get("origin")
     destination = criteria.get("destination")
     depart_date = criteria.get("depart_date")
     return_date = criteria.get("return_date")
+    add_log(f"Updating deals for {origin} -> {destination} from {depart_date} to {return_date}.")
     deals = search_flights(origin, destination, depart_date, return_date)
-    # Sort by total price and take top 5
     def get_price(offer):
         try:
             return float(offer['price']['total'])
@@ -80,6 +118,7 @@ def update_deals():
     deals_sorted = sorted(deals, key=get_price)
     global latest_deals
     latest_deals = deals_sorted[:5]
+    add_log(f"Updated latest deals: {len(latest_deals)} deals stored.")
 
 scheduler = BackgroundScheduler()
 scheduler.add_job(func=update_deals, trigger="interval", minutes=5)
@@ -109,6 +148,8 @@ def index():
             "depart_date": depart_date,
             "return_date": return_date
         }
+        add_log(f"Search criteria set: {origin} -> {destination} from {depart_date} to {return_date}.")
+        update_deals()  # Immediate update on form submit
         return redirect(url_for("results"))
     return render_template("index.html")
 
@@ -137,6 +178,26 @@ def results():
         df = pd.DataFrame()
         plot_div = ""
     return render_template("results.html", table=df.to_html(classes="table table-striped"), plot_div=plot_div)
+
+@app.route("/logs")
+def logs():
+    # Return the current log messages as JSON
+    return jsonify(log_messages)
+
+@app.route("/manual_refresh")
+def manual_refresh():
+    update_deals()
+    return redirect(url_for("results"))
+
+@app.route("/test_api")
+def test_api():
+    # Hardcoded test values for API testing
+    origin = "CLE"
+    destination = "DUB"
+    depart_date = "2025-06-15"
+    return_date = "2025-06-20"
+    results = search_flights(origin, destination, depart_date, return_date)
+    return {"results": results}
 
 if __name__ == "__main__":
     app.run(debug=True)

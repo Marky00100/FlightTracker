@@ -3,6 +3,18 @@
   <head>
     <title>Flight Deals Results</title>
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+      #logWindow {
+         width: 100%;
+         height: 150px;
+         border: 1px solid #ccc;
+         overflow-y: scroll;
+         background: #f9f9f9;
+         padding: 5px;
+         font-family: monospace;
+         font-size: 12px;
+      }
+    </style>
   </head>
   <body>
     <h1>Latest Flight Deals</h1>
@@ -12,7 +24,22 @@
     <div>
       {{ plot_div|safe }}
     </div>
+    <button onclick="window.location.href='{{ url_for('manual_refresh') }}'">Manual Refresh</button>
+    <h2>Active Log</h2>
+    <div id="logWindow"></div>
     <a href="{{ url_for('index') }}">Back</a>
+    <script>
+      async function fetchLogs() {
+          const response = await fetch('/logs');
+          const logs = await response.json();
+          const logWindow = document.getElementById('logWindow');
+          logWindow.innerHTML = logs.join('<br>');
+          logWindow.scrollTop = logWindow.scrollHeight;
+      }
+      // Poll logs every 5 seconds
+      setInterval(fetchLogs, 5000);
+      fetchLogs();
+    </script>
   </body>
 </html>
 
