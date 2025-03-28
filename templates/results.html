@@ -1,0 +1,18 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Flight Deals Results</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  </head>
+  <body>
+    <h1>Latest Flight Deals</h1>
+    <div>
+      {{ table|safe }}
+    </div>
+    <div>
+      {{ plot_div|safe }}
+    </div>
+    <a href="{{ url_for('index') }}">Back</a>
+  </body>
+</html>
+

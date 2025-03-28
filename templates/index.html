@@ -1,0 +1,43 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Flight Price Tracker</title>
+  </head>
+  <body>
+    <h1>Flight Price Tracker</h1>
+    <form method="POST">
+      <label for="origin_country">Travel From:</label>
+      <select name="origin_country" id="origin_country">
+        <option value="USA">USA</option>
+        <option value="Ireland">Ireland</option>
+        <option value="United Kingdom">United Kingdom</option>
+        <option value="France">France</option>
+        <option value="Germany">Germany</option>
+      </select><br>
+      
+      <label for="destination_country">Travel To:</label>
+      <select name="destination_country" id="destination_country">
+        <option value="Ireland">Ireland</option>
+        <option value="United Kingdom">United Kingdom</option>
+        <option value="USA">USA</option>
+        <option value="France">France</option>
+        <option value="Germany">Germany</option>
+      </select><br>
+      
+      <label for="depart_date">Departure Date (YYYY-MM-DD):</label>
+      <input type="date" name="depart_date" required><br>
+      
+      <label for="return_date">Return Date (YYYY-MM-DD):</label>
+      <input type="date" name="return_date" required><br>
+      
+      <label for="email">Your Email:</label>
+      <input type="email" name="email" required><br>
+      
+      <label for="password">Password (enter "marksentme" for weekly alerts):</label>
+      <input type="password" name="password" required><br>
+      
+      <button type="submit">Start Tracking</button>
+    </form>
+  </body>
+</html>
+
